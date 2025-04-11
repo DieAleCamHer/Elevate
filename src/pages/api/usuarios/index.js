@@ -27,7 +27,6 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: 'El nombre de usuario y la contraseña son obligatorios' });
             }
 
-            // Sin hash, se guarda la contraseña en texto plano (⚠️ solo en entorno de prueba)
             const result = await agregarUsuario({ nombre_usuario, contrasena, rol_id }, reqUser.id);
             return res.status(201).json(result);
 
