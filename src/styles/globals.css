@@ -65,7 +65,7 @@ button:hover {
   margin-top: 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px; /* separa los botones */
+  gap: 10px; /* separo los botones */
 }
 
 .card-buttons button {

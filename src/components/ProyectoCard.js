@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import ModalAsignarMiembro from '@/components/ModalAsignarMiembro';//Aqui no olvidar importaciones de components
 import ModalQuitarMiembro from '@/components/ModalQuitarMiembro';
+import ModalVerMiembros from '@/components/ModalVerMiembros';
 
 export default function ProyectoCard({ proyecto, recargar }) {
   const [mostrarEliminar, setMostrarEliminar] = useState(false);
   const [mostrarAsignar, setMostrarAsignar] = useState(false); //Controlo aqui el modal de asignar
   const [mostrarQuitar, setMostrarQuitar] = useState(false);
+  const [mostrarVer, setMostrarVer] = useState(false);
 
   const eliminarProyecto = async () => {
     try {
@@ -37,9 +39,11 @@ export default function ProyectoCard({ proyecto, recargar }) {
         <button onClick={() => setMostrarEliminar(true)}>Eliminar Proyecto</button>
         <button onClick={() => setMostrarAsignar(true)}>Asignar Miembros</button>
         <button onClick={() => setMostrarQuitar(true)}>Quitar Miembros</button>
-        <button>Ver Miembros</button>
+        <button onClick={() => setMostrarVer(true)}>Ver Miembros</button>
         <button>Ver Historial</button>
-        <button>Ver Tareas</button>
+        <button onClick={() => router.push(`/dashboard/gerente/tareas/${proyecto.id}`)}>
+          Ver Tareas
+        </button>
       </div>
 
       {/* Modal eliminar */}
@@ -65,11 +69,20 @@ export default function ProyectoCard({ proyecto, recargar }) {
       {/* Modal mostrar miembros */}
       {mostrarQuitar && (
         <ModalQuitarMiembro
-            proyectoId={proyecto.id}
-            cerrarModal={() => setMostrarQuitar(false)}
-           recargar={recargar}
+          proyectoId={proyecto.id}
+          cerrarModal={() => setMostrarQuitar(false)}
+          recargar={recargar}
         />
-        )}
+      )}
+
+      {/*Mostrar ver miembros*/}
+      {mostrarVer && (
+        <ModalVerMiembros
+          proyectoId={proyecto.id}
+          cerrarModal={() => setMostrarVer(false)}
+          recargar={recargar}
+        />
+      )}
     </div>
   );
 }

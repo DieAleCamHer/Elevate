@@ -12,13 +12,29 @@ export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }
 
   const cargarMiembrosAsignados = async () => {
     try {
-      const res = await fetch(`/api/proyectos?proyectoId=${proyectoId}`);
-      const data = await res.json();
-      if (data.miembros) {
-        setMiembrosAsignados(data.miembros);
-      } else {
+      // Obtener el proyecto
+      const resProyecto = await fetch(`/api/proyectos?proyectoId=${proyectoId}`);
+      const dataProyecto = await resProyecto.json();
+
+      if (!dataProyecto.miembros || dataProyecto.miembros.length === 0) {
         setMiembrosAsignados([]);
+        return;
       }
+
+      // Obtener todos los usuarios
+      const resUsuarios = await fetch('/api/usuarios');
+      const usuarios = await resUsuarios.json();
+
+      // Filtrar los usuarios asignados
+      const asignados = usuarios
+        .filter(u => dataProyecto.miembros.includes(u.id))
+        .map(u => ({
+          id: u.id,
+          nombre: u.nombre || 'Sin nombre',
+          username: u.username || 'sin-usuario'
+        }));
+
+      setMiembrosAsignados(asignados);
     } catch (error) {
       console.error('Error al cargar miembros asignados:', error);
     }
@@ -64,16 +80,16 @@ export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }
               onChange={(e) => setMiembroSeleccionado(e.target.value)}
             >
               <option value="">Selecciona un miembro asignado</option>
-              {miembrosAsignados.map((miembroId, index) => (
-                <option key={index} value={miembroId}>
-                  {miembroId}
+              {miembrosAsignados.map((miembro) => (
+                <option key={miembro.id} value={miembro.id}>
+                  {miembro.nombre} ({miembro.username})
                 </option>
               ))}
             </select>
 
             <div style={{ marginTop: '20px' }}>
               <button onClick={quitarMiembro}>Quitar</button>
-              <button onClick={cerrarModal} style={{ marginTop: '10px' }}>Cancelar</button>
+              <button onClick={cerrarModal} style={{ marginLeft: '10px' }}>Cancelar</button>
             </div>
           </>
         ) : (

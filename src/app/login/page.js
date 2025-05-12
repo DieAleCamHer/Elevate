@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [formKey, setFormKey] = useState(Date.now()); // 🚀 clave única para reiniciar form
+  const [formKey, setFormKey] = useState(Date.now()); // esta es una clave una para reiniciar el form
   const router = useRouter();
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setUsername('');
     setPassword('');
     setError('');
-    setFormKey(Date.now()); // 🚀 Forzar que el form se reinicie
+    setFormKey(Date.now()); // Fuerzo a que el form se reinicie
   }, []);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function LoginPage() {
       setUsername('');
       setPassword('');
       setError('');
-      setFormKey(Date.now()); // 🚀 Cuando das click en "atrás", también reiniciar
+      setFormKey(Date.now()); // Cuando doy click en atrás tambn se reinicia
     };
 
     window.addEventListener('popstate', handlePopState);

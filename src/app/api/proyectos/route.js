@@ -34,7 +34,7 @@ export async function GET(request) {
       return Response.json(proyectos);
     }
 
-    // Si no pasan ningún parámetro, traer todos los proyectos
+    // Si no pasan ningún parámetro, entonces traigo todos los proyectos
     const querySnapshot = await getDocs(collection(db, 'proyectos'));
     const proyectos = querySnapshot.docs.map(doc => ({
       id: doc.id,

@@ -35,7 +35,7 @@ export default function GerenteDashboard() {
       return;
     }
 
-    const user = auth.currentUser; // ✅ obtener el usuario autenticado
+    const user = auth.currentUser; // Es para traer el usuario autenticado
     if (!user) {
       alert('Usuario no autenticado');
       return;
@@ -49,7 +49,7 @@ export default function GerenteDashboard() {
           nombre,
           descripcion,
           fechaEntrega,
-          creadorId: user.uid  // ✅ ahora mandamos también creadorId
+          creadorId: user.uid
         })
       });
 
@@ -57,7 +57,7 @@ export default function GerenteDashboard() {
         setNombre('');
         setDescripcion('');
         setFechaEntrega('');
-        cargarProyectos(); // Recargar los proyectos después de crear uno nuevo
+        cargarProyectos(); // Aqui se recargan los proyectos despues de crea uno nuevo
       } else {
         alert('Error al crear proyecto');
       }
