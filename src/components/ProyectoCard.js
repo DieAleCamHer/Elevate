@@ -1,15 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import ModalAsignarMiembro from '@/components/ModalAsignarMiembro';//Aqui no olvidar importaciones de components
+import { useRouter } from 'next/navigation'; // 🔹 AÑADIDO
+import ModalAsignarMiembro from '@/components/ModalAsignarMiembro';
 import ModalQuitarMiembro from '@/components/ModalQuitarMiembro';
 import ModalVerMiembros from '@/components/ModalVerMiembros';
 
 export default function ProyectoCard({ proyecto, recargar }) {
   const [mostrarEliminar, setMostrarEliminar] = useState(false);
-  const [mostrarAsignar, setMostrarAsignar] = useState(false); //Controlo aqui el modal de asignar
+  const [mostrarAsignar, setMostrarAsignar] = useState(false);
   const [mostrarQuitar, setMostrarQuitar] = useState(false);
   const [mostrarVer, setMostrarVer] = useState(false);
+
+  const router = useRouter(); // 🔹 AÑADIDO
 
   const eliminarProyecto = async () => {
     try {
@@ -46,7 +49,6 @@ export default function ProyectoCard({ proyecto, recargar }) {
         </button>
       </div>
 
-      {/* Modal eliminar */}
       {mostrarEliminar && (
         <div className="modal">
           <div className="modal-content">
@@ -57,7 +59,6 @@ export default function ProyectoCard({ proyecto, recargar }) {
         </div>
       )}
 
-      {/* Modal asignar miembros */}
       {mostrarAsignar && (
         <ModalAsignarMiembro
           proyectoId={proyecto.id}
@@ -66,7 +67,6 @@ export default function ProyectoCard({ proyecto, recargar }) {
         />
       )}
 
-      {/* Modal mostrar miembros */}
       {mostrarQuitar && (
         <ModalQuitarMiembro
           proyectoId={proyecto.id}
@@ -75,7 +75,6 @@ export default function ProyectoCard({ proyecto, recargar }) {
         />
       )}
 
-      {/*Mostrar ver miembros*/}
       {mostrarVer && (
         <ModalVerMiembros
           proyectoId={proyecto.id}

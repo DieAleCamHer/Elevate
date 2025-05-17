@@ -27,6 +27,7 @@ export default function TareasProyectoPage({ params }) {
 
   const crearTarea = async (e) => {
     e.preventDefault();
+
     if (!nombre || !descripcion) {
       alert('Completa todos los campos');
       return;
@@ -64,7 +65,7 @@ export default function TareasProyectoPage({ params }) {
 
   return (
     <div className="container">
-      <h1>Gestión de Tareas</h1>
+      <h1>Tareas del Proyecto</h1>
 
       <form onSubmit={crearTarea} className="form-proyecto">
         <input
@@ -86,7 +87,7 @@ export default function TareasProyectoPage({ params }) {
 
       <div className="proyectos-grid">
         {tareas.map((tarea) => (
-          <TareaCard key={tarea.id} tarea={tarea} recargar={cargarTareas} />
+          <TareaCard key={tarea.id} tarea={tarea} recargar={cargarTareas} proyectoId={idProyecto} />
         ))}
       </div>
     </div>
