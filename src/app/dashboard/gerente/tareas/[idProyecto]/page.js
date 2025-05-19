@@ -1,19 +1,36 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import TareaCard from '@/components/TareaCard';
 import { auth } from '@/firebaseConfig';
 
 export default function TareasProyectoPage({ params }) {
-  const { idProyecto } = params;
+  const { idProyecto } = React.use(params);
+
   const [tareas, setTareas] = useState([]);
-  const [nombre, setNombre] = useState('');
-  const [descripcion, setDescripcion] = useState('');
+  const [nombreTarea, setNombreTarea] = useState('');
+  const [descripcionTarea, setDescripcionTarea] = useState('');
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [miembrosProyecto, setMiembrosProyecto] = useState([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    cargarTareas();
+    cargarMiembros();
+  }, []);
 
   const cargarTareas = async () => {
     try {
-      const res = await fetch(`/api/tareas?proyectoId=${idProyecto}`);
+      const user = auth.currentUser;
+      const token = await user.getIdToken();
+
+      const res = await fetch(`/api/tareas?proyectoId=${idProyecto}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       const data = await res.json();
       setTareas(data);
     } catch (error) {
@@ -21,75 +38,132 @@ export default function TareasProyectoPage({ params }) {
     }
   };
 
-  useEffect(() => {
-    cargarTareas();
-  }, []);
+  const cargarMiembros = async () => {
+    try {
+      const user = auth.currentUser;
+      const token = await user.getIdToken();
 
-  const crearTarea = async (e) => {
-    e.preventDefault();
+      const res = await fetch(`/api/proyectos?proyectoId=${idProyecto}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
 
-    if (!nombre || !descripcion) {
-      alert('Completa todos los campos');
-      return;
+      const miembrosIds = data.miembros || [];
+
+      const miembrosConDatos = await Promise.all(
+        miembrosIds.map(async (id) => {
+          const resUsuario = await fetch(`/api/usuarios?id=${id}`);
+          const usuario = await resUsuario.json();
+          return { id, nombre: usuario.nombre, username: usuario.username };
+        })
+      );
+
+      setMiembrosProyecto(miembrosConDatos);
+    } catch (error) {
+      console.error('Error al cargar los miembros:', error);
     }
+  };
 
-    const user = auth.currentUser;
-    if (!user) {
-      alert('Usuario no autenticado');
+  const handleCrearTarea = async (e) => {
+    e.preventDefault();
+    if (!nombreTarea || !descripcionTarea) {
+      alert('Por favor, completa todos los campos.');
       return;
     }
 
     try {
+      const user = auth.currentUser;
+      const token = await user.getIdToken();
+
       const res = await fetch('/api/tareas', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
-          nombre,
-          descripcion,
-          creadorId: user.uid,
-          proyectoId: idProyecto
-        })
+          nombre: nombreTarea,
+          descripcion: descripcionTarea,
+          proyectoId: idProyecto,
+        }),
       });
 
-      if (res.ok) {
-        setNombre('');
-        setDescripcion('');
-        cargarTareas();
-      } else {
-        alert('Error al crear tarea');
-      }
+      const data = await res.json();
+      cargarTareas();
+
+      setNombreTarea('');
+      setDescripcionTarea('');
+      setMostrarFormulario(false);
     } catch (error) {
       console.error('Error al crear tarea:', error);
     }
+  };
+
+  const eliminar = async (tareaId) => {
+    try {
+      const user = auth.currentUser;
+      const token = await user.getIdToken();
+
+      const res = await fetch('/api/tareas', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ tareaId }),
+      });
+
+      if (!res.ok) throw new Error('Error al eliminar la tarea');
+      cargarTareas();
+    } catch (error) {
+      console.error('Error al eliminar tarea:', error);
+    }
+  };
+
+  const verSubtareas = (tareaId) => {
+    router.push(`/dashboard/gerente/subtareas/${tareaId}`);
   };
 
   return (
     <div className="container">
       <h1>Tareas del Proyecto</h1>
 
-      <form onSubmit={crearTarea} className="form-proyecto">
-        <input
-          type="text"
-          placeholder="Nombre de la Tarea"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Descripción"
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-          required
-        />
-        <button type="submit">Crear Tarea</button>
-      </form>
+      <button onClick={() => setMostrarFormulario(!mostrarFormulario)}>
+        {mostrarFormulario ? 'Cancelar' : 'Crear Tarea'}
+      </button>
 
-      <div className="proyectos-grid">
-        {tareas.map((tarea) => (
-          <TareaCard key={tarea.id} tarea={tarea} recargar={cargarTareas} proyectoId={idProyecto} />
-        ))}
-      </div>
+      {mostrarFormulario && (
+        <form onSubmit={handleCrearTarea}>
+          <input
+            type="text"
+            placeholder="Nombre de la tarea"
+            value={nombreTarea}
+            onChange={(e) => setNombreTarea(e.target.value)}
+          />
+          <textarea
+            placeholder="Descripción de la tarea"
+            value={descripcionTarea}
+            onChange={(e) => setDescripcionTarea(e.target.value)}
+          ></textarea>
+          <button type="submit">Crear Tarea</button>
+        </form>
+      )}
+
+      {tareas.length > 0 ? (
+        tareas.map((tarea) => (
+          <TareaCard
+            key={tarea.id}
+            tarea={tarea}
+            miembrosProyecto={miembrosProyecto}
+            onEliminar={eliminar}
+            onVerSubtareas={() => verSubtareas(tarea.id)}
+          />
+        ))
+      ) : (
+        <p>No hay tareas para este proyecto.</p>
+      )}
     </div>
   );
 }

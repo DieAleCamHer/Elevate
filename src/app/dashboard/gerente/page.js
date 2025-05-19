@@ -17,13 +17,29 @@ export default function GerenteDashboard() {
   const cargarProyectos = async () => {
     try {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) {
+        console.warn('Usuario no autenticado');
+        setProyectos([]);
+        return;
+      }
 
-      const res = await fetch(`/api/proyectos?userId=${user.uid}`);
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/proyectos?userId=${user.uid}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
-      setProyectos(data);
+
+      if (Array.isArray(data)) {
+        setProyectos(data);
+      } else {
+        console.error('Respuesta inesperada:', data);
+        setProyectos([]);
+      }
     } catch (error) {
       console.error('Error al cargar proyectos:', error);
+      setProyectos([]);
     }
   };
 
@@ -35,34 +51,43 @@ export default function GerenteDashboard() {
       return;
     }
 
-    const user = auth.currentUser; // Es para traer el usuario autenticado
-    if (!user) {
-      alert('Usuario no autenticado');
+    const user = auth.currentUser;
+    if (!user || !user.uid) {
+      alert('Usuario no autenticado correctamente');
       return;
     }
 
     try {
+      const token = await user.getIdToken();
       const res = await fetch('/api/proyectos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           nombre,
           descripcion,
           fechaEntrega,
-          creadorId: user.uid
-        })
+          creadorId: user.uid,
+        }),
       });
 
-      if (res.ok) {
-        setNombre('');
-        setDescripcion('');
-        setFechaEntrega('');
-        cargarProyectos(); // Aqui se recargan los proyectos despues de crea uno nuevo
-      } else {
-        alert('Error al crear proyecto');
+      const result = await res.json();
+
+      if (!res.ok) {
+        alert('Error al crear proyecto: ' + (result.message || 'Error desconocido'));
+        console.error('Error detallado:', result);
+        return;
       }
+
+      setNombre('');
+      setDescripcion('');
+      setFechaEntrega('');
+      cargarProyectos();
     } catch (error) {
       console.error('Error al crear proyecto:', error);
+      alert('Error inesperado al crear proyecto');
     }
   };
 
@@ -96,9 +121,13 @@ export default function GerenteDashboard() {
       </form>
 
       <div className="proyectos-grid">
-        {proyectos.map((proyecto) => (
-          <ProyectoCard key={proyecto.id} proyecto={proyecto} recargar={cargarProyectos} />
-        ))}
+        {proyectos.length === 0 ? (
+          <p>No hay proyectos.</p>
+        ) : (
+          proyectos.map((proyecto) => (
+            <ProyectoCard key={proyecto.id} proyecto={proyecto} recargar={cargarProyectos} />
+          ))
+        )}
       </div>
     </div>
   );

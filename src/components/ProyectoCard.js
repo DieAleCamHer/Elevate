@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // 🔹 AÑADIDO
+import { useRouter } from 'next/navigation';
 import ModalAsignarMiembro from '@/components/ModalAsignarMiembro';
 import ModalQuitarMiembro from '@/components/ModalQuitarMiembro';
 import ModalVerMiembros from '@/components/ModalVerMiembros';
+import { auth } from '@/firebaseConfig';
 
 export default function ProyectoCard({ proyecto, recargar }) {
   const [mostrarEliminar, setMostrarEliminar] = useState(false);
@@ -12,13 +13,19 @@ export default function ProyectoCard({ proyecto, recargar }) {
   const [mostrarQuitar, setMostrarQuitar] = useState(false);
   const [mostrarVer, setMostrarVer] = useState(false);
 
-  const router = useRouter(); // 🔹 AÑADIDO
+  const router = useRouter();
 
   const eliminarProyecto = async () => {
     try {
+      const user = auth.currentUser;
+      const token = await user.getIdToken();
+
       const res = await fetch('/api/proyectos', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ proyectoId: proyecto.id })
       });
 
