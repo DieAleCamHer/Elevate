@@ -1,14 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
 import { auth } from '@/firebaseConfig';
 
-export default function SubtareasPage() {
-  const { idTarea } = useParams(); // ✅ Usa el hook correcto
+export default function SubtareasPage({ idTarea }) {
   const [subtareas, setSubtareas] = useState([]);
   const [nombre, setNombre] = useState('');
-  const router = useRouter();
 
   useEffect(() => {
     if (idTarea) cargarSubtareas();

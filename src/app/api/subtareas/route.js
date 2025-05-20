@@ -1,81 +1,88 @@
-import '@/lib/firebase-admin-config';
-import { db } from '@/firebaseConfig';
-import {
-  collection,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  query,
-  where,
-  doc,
-} from 'firebase/firestore';
+import { db } from '@/lib/firebase-admin-db';
 import { getAuth } from 'firebase-admin/auth';
-import { adminInit } from '@/utils/firebaseAdmin';
 
-adminInit();
-
+// ------------------ FUNCIONES AUXILIARES ------------------
 async function verificarToken(request) {
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
-  const idToken = authHeader.split('Bearer ')[1];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+
+  const token = authHeader.replace('Bearer ', '');
   try {
-    const decodedToken = await getAuth().verifyIdToken(idToken);
-    return decodedToken.uid;
-  } catch (error) {
+    const decoded = await getAuth().verifyIdToken(token);
+    return decoded.uid;
+  } catch {
     return null;
   }
 }
 
+// ------------------ GET: Obtener subtareas por tareaId ------------------
 export async function GET(request) {
   const userId = await verificarToken(request);
-  if (!userId) return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
+  if (!userId)
+    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const tareaId = searchParams.get('tareaId');
+  if (!tareaId)
+    return new Response(JSON.stringify({ message: 'Falta tareaId' }), { status: 400 });
 
-  if (!tareaId) {
-    return Response.json({ message: 'Falta tareaId' }, { status: 400 });
+  try {
+    const snapshot = await db
+      .collection('subtareas') // ✅ sin usar collection() importado
+      .where('tareaId', '==', tareaId)
+      .get();
+
+    const subtareas = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    return new Response(JSON.stringify(subtareas), { status: 200 });
+  } catch (error) {
+    console.error('[GET] Error al obtener subtareas:', error);
+    return new Response(JSON.stringify({ message: 'Error al obtener subtareas' }), { status: 500 });
   }
-
-  const q = query(collection(db, 'subtareas'), where('tareaId', '==', tareaId));
-  const snapshot = await getDocs(q);
-  const subtareas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-  return Response.json(subtareas);
 }
 
+// ------------------ POST: Crear una nueva subtarea ------------------
 export async function POST(request) {
   const userId = await verificarToken(request);
-  if (!userId) return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
+  if (!userId)
+    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
 
-  const { nombre, tareaId } = await request.json();
+  try {
+    const { nombre, tareaId } = await request.json();
+    if (!nombre || !tareaId)
+      return new Response(JSON.stringify({ message: 'Faltan campos requeridos' }), { status: 400 });
 
-  if (!nombre || !tareaId) {
-    return Response.json({ message: 'Faltan campos' }, { status: 400 });
+    const nuevaRef = await db.collection('subtareas').add({
+      nombre,
+      tareaId,
+      createdAt: new Date().toISOString(),
+    });
+
+    return new Response(JSON.stringify({ message: 'Subtarea creada', id: nuevaRef.id }), { status: 201 });
+  } catch (error) {
+    console.error('[POST] Error al crear subtarea:', error);
+    return new Response(JSON.stringify({ message: 'Error al crear subtarea' }), { status: 500 });
   }
-
-  const subtareaRef = await addDoc(collection(db, 'subtareas'), {
-    nombre,
-    tareaId,
-    completada: false,
-  });
-
-  return Response.json({ message: 'Subtarea creada', id: subtareaRef.id });
 }
 
+// ------------------ DELETE: Eliminar subtarea ------------------
 export async function DELETE(request) {
   const userId = await verificarToken(request);
-  if (!userId) return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
+  if (!userId)
+    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
 
-  const { subtareaId } = await request.json();
+  try {
+    const { subtareaId } = await request.json();
+    if (!subtareaId)
+      return new Response(JSON.stringify({ message: 'Falta subtareaId' }), { status: 400 });
 
-  if (!subtareaId) {
-    return Response.json({ message: 'Falta subtareaId' }, { status: 400 });
+    await db.collection('subtareas').doc(subtareaId).delete();
+    return new Response(JSON.stringify({ message: 'Subtarea eliminada' }), { status: 200 });
+  } catch (error) {
+    console.error('[DELETE] Error al eliminar subtarea:', error);
+    return new Response(JSON.stringify({ message: 'Error al eliminar subtarea' }), { status: 500 });
   }
-
-  await deleteDoc(doc(db, 'subtareas', subtareaId));
-
-  return Response.json({ message: 'Subtarea eliminada' });
 }

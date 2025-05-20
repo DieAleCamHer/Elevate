@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import TareaCard from '@/components/TareaCard';
 import { auth } from '@/firebaseConfig';
 
-export default function TareasProyectoPage({ params }) {
-  const { idProyecto } = React.use(params);
-
+export default function TareasProyectoPage() {
+  const params = useParams();
+  const idProyecto = params.idProyecto;
   const [tareas, setTareas] = useState([]);
   const [nombreTarea, setNombreTarea] = useState('');
   const [descripcionTarea, setDescripcionTarea] = useState('');
@@ -17,19 +16,17 @@ export default function TareasProyectoPage({ params }) {
   const router = useRouter();
 
   useEffect(() => {
-    cargarTareas();
-    cargarMiembros();
-  }, []);
+    if (idProyecto) {
+      cargarTareas();
+      cargarMiembros();
+    }
+  }, [idProyecto]);
 
   const cargarTareas = async () => {
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
-
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch(`/api/tareas?proyectoId=${idProyecto}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
       setTareas(data);
@@ -40,13 +37,9 @@ export default function TareasProyectoPage({ params }) {
 
   const cargarMiembros = async () => {
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
-
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch(`/api/proyectos?proyectoId=${idProyecto}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
 
@@ -54,9 +47,18 @@ export default function TareasProyectoPage({ params }) {
 
       const miembrosConDatos = await Promise.all(
         miembrosIds.map(async (id) => {
-          const resUsuario = await fetch(`/api/usuarios?id=${id}`);
+          const resUsuario = await fetch(`/api/usuarios?id=${id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (!resUsuario.ok) return { id, nombre: 'Desconocido', username: 'desconocido' };
+
           const usuario = await resUsuario.json();
-          return { id, nombre: usuario.nombre, username: usuario.username };
+          return {
+            id,
+            nombre: usuario.nombre || 'Sin nombre',
+            username: usuario.username || 'sin-usuario'
+          };
         })
       );
 
@@ -68,34 +70,28 @@ export default function TareasProyectoPage({ params }) {
 
   const handleCrearTarea = async (e) => {
     e.preventDefault();
-    if (!nombreTarea || !descripcionTarea) {
-      alert('Por favor, completa todos los campos.');
-      return;
-    }
+    if (!nombreTarea || !descripcionTarea) return alert('Completa todos los campos');
 
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
-
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/tareas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          nombre: nombreTarea,
-          descripcion: descripcionTarea,
-          proyectoId: idProyecto,
-        }),
+        body: JSON.stringify({ nombre: nombreTarea, descripcion: descripcionTarea, proyectoId: idProyecto })
       });
 
-      const data = await res.json();
-      cargarTareas();
-
-      setNombreTarea('');
-      setDescripcionTarea('');
-      setMostrarFormulario(false);
+      if (res.ok) {
+        setNombreTarea('');
+        setDescripcionTarea('');
+        setMostrarFormulario(false);
+        cargarTareas();
+      } else {
+        const error = await res.json();
+        alert(error.message || 'Error al crear tarea');
+      }
     } catch (error) {
       console.error('Error al crear tarea:', error);
     }
@@ -103,16 +99,14 @@ export default function TareasProyectoPage({ params }) {
 
   const eliminar = async (tareaId) => {
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
-
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/tareas', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ tareaId }),
+        body: JSON.stringify({ tareaId })
       });
 
       if (!res.ok) throw new Error('Error al eliminar la tarea');
@@ -136,30 +130,15 @@ export default function TareasProyectoPage({ params }) {
 
       {mostrarFormulario && (
         <form onSubmit={handleCrearTarea}>
-          <input
-            type="text"
-            placeholder="Nombre de la tarea"
-            value={nombreTarea}
-            onChange={(e) => setNombreTarea(e.target.value)}
-          />
-          <textarea
-            placeholder="Descripción de la tarea"
-            value={descripcionTarea}
-            onChange={(e) => setDescripcionTarea(e.target.value)}
-          ></textarea>
+          <input type="text" placeholder="Nombre de la tarea" value={nombreTarea} onChange={(e) => setNombreTarea(e.target.value)} />
+          <textarea placeholder="Descripción" value={descripcionTarea} onChange={(e) => setDescripcionTarea(e.target.value)} />
           <button type="submit">Crear Tarea</button>
         </form>
       )}
 
       {tareas.length > 0 ? (
         tareas.map((tarea) => (
-          <TareaCard
-            key={tarea.id}
-            tarea={tarea}
-            miembrosProyecto={miembrosProyecto}
-            onEliminar={eliminar}
-            onVerSubtareas={() => verSubtareas(tarea.id)}
-          />
+          <TareaCard key={tarea.id} tarea={tarea} miembrosProyecto={miembrosProyecto} onEliminar={eliminar} onVerSubtareas={() => verSubtareas(tarea.id)} />
         ))
       ) : (
         <p>No hay tareas para este proyecto.</p>

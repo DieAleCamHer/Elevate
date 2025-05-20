@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { auth } from '@/firebaseConfig';
 
 export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }) {
   const [miembrosAsignados, setMiembrosAsignados] = useState([]);
@@ -12,8 +13,14 @@ export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }
 
   const cargarMiembrosAsignados = async () => {
     try {
-      // Obtener el proyecto
-      const resProyecto = await fetch(`/api/proyectos?proyectoId=${proyectoId}`);
+      const user = auth.currentUser;
+      const token = await user.getIdToken(true);
+
+      const resProyecto = await fetch(`/api/proyectos?proyectoId=${proyectoId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const dataProyecto = await resProyecto.json();
 
       if (!dataProyecto.miembros || dataProyecto.miembros.length === 0) {
@@ -21,17 +28,19 @@ export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }
         return;
       }
 
-      // Obtener todos los usuarios
-      const resUsuarios = await fetch('/api/usuarios');
+      const resUsuarios = await fetch('/api/usuarios', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const usuarios = await resUsuarios.json();
 
-      // Filtrar los usuarios asignados
       const asignados = usuarios
         .filter(u => dataProyecto.miembros.includes(u.id))
         .map(u => ({
           id: u.id,
           nombre: u.nombre || 'Sin nombre',
-          username: u.username || 'sin-usuario'
+          username: u.username || 'sin-usuario',
         }));
 
       setMiembrosAsignados(asignados);
@@ -41,20 +50,23 @@ export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }
   };
 
   const quitarMiembro = async () => {
-    if (!miembroSeleccionado) {
-      alert('Selecciona un miembro');
-      return;
-    }
+    if (!miembroSeleccionado) return alert('Selecciona un miembro');
 
     try {
+      const user = auth.currentUser;
+      const token = await user.getIdToken(true);
+
       const res = await fetch('/api/proyectos', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           action: 'quitar',
           proyectoId,
-          miembroId: miembroSeleccionado
-        })
+          miembroId: miembroSeleccionado,
+        }),
       });
 
       if (res.ok) {
@@ -72,7 +84,6 @@ export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }
     <div className="modal">
       <div className="modal-content">
         <h2>Quitar Miembro del Proyecto</h2>
-
         {miembrosAsignados.length > 0 ? (
           <>
             <select
@@ -86,7 +97,6 @@ export default function ModalQuitarMiembro({ proyectoId, cerrarModal, recargar }
                 </option>
               ))}
             </select>
-
             <div style={{ marginTop: '20px' }}>
               <button onClick={quitarMiembro}>Quitar</button>
               <button onClick={cerrarModal} style={{ marginLeft: '10px' }}>Cancelar</button>

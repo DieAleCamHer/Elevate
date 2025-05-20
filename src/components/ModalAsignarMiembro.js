@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { auth } from '@/firebaseConfig';
 
 export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar }) {
   const [miembros, setMiembros] = useState([]);
@@ -12,7 +13,15 @@ export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar 
 
   const cargarMiembros = async () => {
     try {
-      const res = await fetch('/api/usuarios');
+      const user = auth.currentUser;
+      const token = await user.getIdToken(true);
+
+      const res = await fetch('/api/usuarios', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       const data = await res.json();
       setMiembros(data.filter(usuario => usuario.rol === 'miembro'));
     } catch (error) {
@@ -21,20 +30,23 @@ export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar 
   };
 
   const asignarMiembro = async () => {
-    if (!miembroSeleccionado) {
-      alert('Selecciona un miembro');
-      return;
-    }
+    if (!miembroSeleccionado) return alert('Selecciona un miembro');
 
     try {
+      const user = auth.currentUser;
+      const token = await user.getIdToken(true);
+
       const res = await fetch('/api/proyectos', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           action: 'asignar',
           proyectoId,
-          miembroId: miembroSeleccionado
-        })
+          miembroId: miembroSeleccionado,
+        }),
       });
 
       if (res.ok) {
@@ -52,7 +64,6 @@ export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar 
     <div className="modal">
       <div className="modal-content">
         <h2>Asignar Miembro al Proyecto</h2>
-
         <select
           value={miembroSeleccionado}
           onChange={(e) => setMiembroSeleccionado(e.target.value)}
@@ -64,7 +75,6 @@ export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar 
             </option>
           ))}
         </select>
-
         <div style={{ marginTop: '20px' }}>
           <button onClick={asignarMiembro}>Asignar</button>
           <button onClick={cerrarModal} style={{ marginLeft: '10px' }}>Cancelar</button>

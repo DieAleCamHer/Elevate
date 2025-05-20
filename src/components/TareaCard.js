@@ -29,15 +29,13 @@ export default function TareaCard({ tarea, onEliminar, onVerSubtareas, miembrosP
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          tareaId: tarea.id,
-          proyectoId: tarea.proyectoId,
-          miembroId,
-        }),
+        body: JSON.stringify({ miembroId }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Error al asignar miembro');
+      }
 
       setMiembrosAsignados((prev) => [...prev, miembroId]);
     } catch (error) {
@@ -60,8 +58,10 @@ export default function TareaCard({ tarea, onEliminar, onVerSubtareas, miembrosP
         body: JSON.stringify({ miembroId }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Error al eliminar miembro');
+      }
 
       setMiembrosAsignados((prev) => prev.filter((id) => id !== miembroId));
     } catch (error) {
@@ -86,11 +86,8 @@ export default function TareaCard({ tarea, onEliminar, onVerSubtareas, miembrosP
       {mostrarMiembros === 'asignar' && (
         <MiembroModal titulo="Asignar Miembro a la Tarea" onCerrar={() => setMostrarMiembros(null)}>
           <MiembrosTarea
-            tareaId={tarea.id}
-            proyectoId={tarea.proyectoId}
             miembrosProyecto={miembrosProyecto}
             onAsignarMiembro={handleAsignarMiembro}
-            onEliminarMiembro={eliminarMiembro}
             onCerrar={() => setMostrarMiembros(null)}
           />
         </MiembroModal>
@@ -99,10 +96,14 @@ export default function TareaCard({ tarea, onEliminar, onVerSubtareas, miembrosP
       {mostrarMiembros === 'ver' && (
         <MiembroModal titulo="Miembros Asignados" onCerrar={() => setMostrarMiembros(null)}>
           <ul>
-            {miembrosAsignados.map((miembroId) => {
-              const miembro = miembrosProyecto.find((m) => m.id === miembroId);
-              return miembro && <li key={miembro.id}>{miembro.nombre} ({miembro.username})</li>;
-            })}
+            {miembrosAsignados.length > 0 ? (
+              miembrosAsignados.map((miembroId) => {
+                const miembro = miembrosProyecto.find((m) => m.id === miembroId);
+                return miembro && <li key={miembro.id}>{miembro.nombre} ({miembro.username})</li>;
+              })
+            ) : (
+              <li>No hay miembros asignados.</li>
+            )}
           </ul>
         </MiembroModal>
       )}

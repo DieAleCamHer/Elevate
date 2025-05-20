@@ -1,6 +1,5 @@
-'use client';
-
 import { useState, useEffect } from 'react';
+import { auth } from '@/firebaseConfig';
 
 export default function ModalVerMiembros({ proyectoId, cerrarModal }) {
   const [miembros, setMiembros] = useState([]);
@@ -11,8 +10,14 @@ export default function ModalVerMiembros({ proyectoId, cerrarModal }) {
 
   const cargarMiembrosAsignados = async () => {
     try {
-      // 1. Traer el proyecto y sus IDs de miembros asignados
-      const resProyecto = await fetch(`/api/proyectos?proyectoId=${proyectoId}`);
+      const user = auth.currentUser;
+      const token = await user.getIdToken(true);
+
+      const resProyecto = await fetch(`/api/proyectos?proyectoId=${proyectoId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const proyectoData = await resProyecto.json();
 
       if (!proyectoData.miembros || proyectoData.miembros.length === 0) {
@@ -20,17 +25,19 @@ export default function ModalVerMiembros({ proyectoId, cerrarModal }) {
         return;
       }
 
-      // 2. Traer todos los usuarios
-      const resUsuarios = await fetch('/api/usuarios');
+      const resUsuarios = await fetch('/api/usuarios', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const usuariosData = await resUsuarios.json();
 
-      // 3. Filtrar por los miembros del proyecto
       const miembrosAsignados = usuariosData
         .filter(user => proyectoData.miembros.includes(user.id))
         .map(user => ({
           id: user.id,
           nombre: user.nombre || 'Sin nombre',
-          username: user.username || 'sin-usuario'
+          username: user.username || 'sin-usuario',
         }));
 
       setMiembros(miembrosAsignados);
@@ -43,7 +50,6 @@ export default function ModalVerMiembros({ proyectoId, cerrarModal }) {
     <div className="modal">
       <div className="modal-content">
         <h2>Miembros Asignados</h2>
-
         {miembros.length > 0 ? (
           <ul style={{ textAlign: 'left', marginTop: '15px' }}>
             {miembros.map(miembro => (
@@ -55,7 +61,6 @@ export default function ModalVerMiembros({ proyectoId, cerrarModal }) {
         ) : (
           <p>No hay miembros asignados.</p>
         )}
-
         <div style={{ marginTop: '20px' }}>
           <button onClick={cerrarModal}>Cerrar</button>
         </div>

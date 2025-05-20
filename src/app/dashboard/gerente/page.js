@@ -17,48 +17,37 @@ export default function GerenteDashboard() {
   const cargarProyectos = async () => {
     try {
       const user = auth.currentUser;
-      if (!user) {
-        console.warn('Usuario no autenticado');
-        setProyectos([]);
-        return;
-      }
+      if (!user) return console.warn('Usuario no autenticado');
 
-      const token = await user.getIdToken();
+      const token = await user.getIdToken(true);
       const res = await fetch(`/api/proyectos?userId=${user.uid}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      const data = await res.json();
 
-      if (Array.isArray(data)) {
-        setProyectos(data);
-      } else {
-        console.error('Respuesta inesperada:', data);
-        setProyectos([]);
+      if (!res.ok) {
+        const error = await res.json();
+        console.error('Error al cargar proyectos:', error);
+        return;
       }
+
+      const data = await res.json();
+      setProyectos(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error al cargar proyectos:', error);
-      setProyectos([]);
+      console.error('Error inesperado al cargar proyectos:', error);
     }
   };
 
   const crearProyecto = async (e) => {
     e.preventDefault();
-
-    if (!nombre || !descripcion || !fechaEntrega) {
-      alert('Completa todos los campos');
-      return;
-    }
+    if (!nombre || !descripcion || !fechaEntrega) return alert('Completa todos los campos');
 
     const user = auth.currentUser;
-    if (!user || !user.uid) {
-      alert('Usuario no autenticado correctamente');
-      return;
-    }
+    if (!user) return alert('Usuario no autenticado correctamente');
 
     try {
-      const token = await user.getIdToken();
+      const token = await user.getIdToken(true);
       const res = await fetch('/api/proyectos', {
         method: 'POST',
         headers: {
@@ -76,9 +65,8 @@ export default function GerenteDashboard() {
       const result = await res.json();
 
       if (!res.ok) {
-        alert('Error al crear proyecto: ' + (result.message || 'Error desconocido'));
         console.error('Error detallado:', result);
-        return;
+        return alert('Error al crear proyecto: ' + (result.message || 'Error desconocido'));
       }
 
       setNombre('');

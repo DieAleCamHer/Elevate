@@ -1,127 +1,83 @@
-import '@/lib/firebase-admin-config';
-import { db } from '@/firebaseConfig';
+import { db } from '@/lib/firebase-admin-db';
 import { getAuth } from 'firebase-admin/auth';
-import { adminInit } from '@/utils/firebaseAdmin';
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  deleteDoc,
-  doc,
-  addDoc,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
-  getDoc
-} from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 
-adminInit();
+const tareasRef = getFirestore().collection('tareas');
 
 async function verificarToken(request) {
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return null;
-  }
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const idToken = authHeader.split('Bearer ')[1];
   try {
-    const decodedToken = await getAuth().verifyIdToken(idToken);
-    return decodedToken.uid;
-  } catch (error) {
+    const decoded = await getAuth().verifyIdToken(idToken);
+    return decoded.uid;
+  } catch {
     return null;
   }
 }
 
+// ------------------------- GET -------------------------
 export async function GET(request) {
   const userId = await verificarToken(request);
-  if (!userId) return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
+  if (!userId)
+    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
 
   const url = new URL(request.url);
   const proyectoId = url.searchParams.get('proyectoId');
-
-  if (!proyectoId) {
+  if (!proyectoId)
     return new Response(JSON.stringify({ message: 'Falta proyectoId' }), { status: 400 });
-  }
 
   try {
-    const tareasRef = collection(db, 'tareas');
-    const q = query(tareasRef, where('proyectoId', '==', proyectoId));
-    const querySnapshot = await getDocs(q);
-
-    const tareas = [];
-    querySnapshot.forEach((doc) => {
-      tareas.push({ id: doc.id, ...doc.data() });
-    });
-
+    const snapshot = await tareasRef.where('proyectoId', '==', proyectoId).get();
+    const tareas = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     return new Response(JSON.stringify(tareas), { status: 200 });
   } catch (error) {
     return new Response(JSON.stringify({ message: 'Error al obtener tareas', error: error.message }), { status: 500 });
   }
 }
 
-export async function DELETE(request) {
-  const userId = await verificarToken(request);
-  if (!userId) return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
-
-  try {
-    const { tareaId } = await request.json();
-
-    if (!tareaId) {
-      return new Response(JSON.stringify({ message: 'Falta tareaId' }), { status: 400 });
-    }
-
-    await deleteDoc(doc(db, 'tareas', tareaId));
-
-    return new Response(JSON.stringify({ message: 'Tarea eliminada correctamente' }), { status: 200 });
-  } catch (error) {
-    return new Response(JSON.stringify({ message: 'Error al eliminar tarea', error: error.message }), { status: 500 });
-  }
-}
-
+// ------------------------- POST -------------------------
 export async function POST(request) {
   const userId = await verificarToken(request);
-  if (!userId) return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
+  if (!userId)
+    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
 
   try {
     const { nombre, descripcion, proyectoId } = await request.json();
-
     if (!nombre || !descripcion || !proyectoId) {
       return new Response(JSON.stringify({ message: 'Faltan campos requeridos' }), { status: 400 });
     }
 
-    const tareaRef = collection(db, 'tareas');
-    const docRef = await addDoc(tareaRef, {
+    const nuevaTarea = {
       nombre,
       descripcion,
       proyectoId,
       miembrosAsignados: [],
-      createdAt: new Date(),
-    });
+      createdAt: new Date().toISOString(),
+    };
 
+    const docRef = await tareasRef.add(nuevaTarea);
     return new Response(JSON.stringify({ message: 'Tarea creada correctamente', id: docRef.id }), { status: 201 });
   } catch (error) {
     return new Response(JSON.stringify({ message: 'Error al crear la tarea', error: error.message }), { status: 500 });
   }
 }
 
-export async function PUT(request) {
+// ------------------------- DELETE -------------------------
+export async function DELETE(request) {
   const userId = await verificarToken(request);
-  if (!userId) return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
-
-  const { tareaId, proyectoId, miembroId } = await request.json();
-
-  if (!tareaId || !proyectoId || !miembroId) {
-    return new Response(JSON.stringify({ message: 'Faltan datos' }), { status: 400 });
-  }
+  if (!userId)
+    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
 
   try {
-    const tareaRef = doc(db, 'tareas', tareaId);
-    await updateDoc(tareaRef, {
-      miembrosAsignados: arrayUnion(miembroId),
-    });
+    const { tareaId } = await request.json();
+    if (!tareaId) {
+      return new Response(JSON.stringify({ message: 'Falta tareaId' }), { status: 400 });
+    }
 
-    return new Response(JSON.stringify({ message: 'Miembro asignado correctamente' }), { status: 200 });
+    await tareasRef.doc(tareaId).delete();
+    return new Response(JSON.stringify({ message: 'Tarea eliminada correctamente' }), { status: 200 });
   } catch (error) {
-    return new Response(JSON.stringify({ message: 'Error al asignar miembro', error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ message: 'Error al eliminar tarea', error: error.message }), { status: 500 });
   }
 }

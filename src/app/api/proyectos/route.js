@@ -1,67 +1,41 @@
-import { db } from '@/firebaseConfig';
-import {
-  collection,
-  getDocs,
-  getDoc,
-  addDoc,
-  deleteDoc,
-  doc,
-  query,
-  where,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
-} from 'firebase/firestore';
-
+import { db } from '@/lib/firebase-admin-db';
 import { verifyFirebaseAdmin } from '@/lib/firebase-admin-config';
-import '@/lib/firebase-admin-config';
+import { FieldValue } from 'firebase-admin/firestore';
+
+const arrayUnion = FieldValue.arrayUnion;
+const arrayRemove = FieldValue.arrayRemove;
 
 // ---------------------- MÉTODO GET ----------------------
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  const proyectoId = searchParams.get('proyectoId');
-
   try {
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    console.log('[GET] Token recibido:', token);
     if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
-    await verifyFirebaseAdmin(token);
+
+    const decoded = await verifyFirebaseAdmin(token);
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+    const proyectoId = searchParams.get('proyectoId');
 
     if (proyectoId) {
-      const proyectoRef = doc(db, 'proyectos', proyectoId);
-      const proyectoSnap = await getDoc(proyectoRef);
-
-      if (!proyectoSnap.exists()) {
+      const snap = await db.collection('proyectos').doc(proyectoId).get();
+      if (!snap.exists) {
         return Response.json({ message: 'Proyecto no encontrado' }, { status: 404 });
       }
-
-      const proyectoData = proyectoSnap.data();
-      const miembros = proyectoData.miembros || [];
-
-      console.log('[GET] Proyecto específico:', proyectoData);
-      return Response.json({ id: proyectoSnap.id, ...proyectoData, miembros });
+      return Response.json({ id: snap.id, ...snap.data() });
     }
 
     if (userId) {
-      const q = query(collection(db, 'proyectos'), where('creadorId', '==', userId));
-      const querySnapshot = await getDocs(q);
+      const q = db.collection('proyectos').where('creadorId', '==', userId);
+      const querySnapshot = await q.get();
       const proyectos = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-
-      console.log('[GET] Proyectos del usuario:', proyectos);
       return Response.json(proyectos);
     }
 
-    const querySnapshot = await getDocs(collection(db, 'proyectos'));
-    const proyectos = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    console.log('[GET] Todos los proyectos:', proyectos);
+    const snap = await db.collection('proyectos').get();
+    const proyectos = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     return Response.json(proyectos);
   } catch (error) {
     console.error('[GET] Error al obtener proyectos:', error);
@@ -71,20 +45,18 @@ export async function GET(request) {
 
 // ---------------------- MÉTODO POST ----------------------
 export async function POST(request) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  console.log('[POST] Token recibido:', token);
-  if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
-  await verifyFirebaseAdmin(token);
-
-  const { nombre, descripcion, fechaEntrega, creadorId } = await request.json();
-  console.log('[POST] Datos recibidos:', { nombre, descripcion, fechaEntrega, creadorId });
-
-  if (!creadorId) {
-    return Response.json({ message: 'Falta creadorId' }, { status: 400 });
-  }
-
   try {
-    await addDoc(collection(db, 'proyectos'), {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
+
+    await verifyFirebaseAdmin(token);
+
+    const { nombre, descripcion, fechaEntrega, creadorId } = await request.json();
+    if (!creadorId) {
+      return Response.json({ message: 'Falta creadorId' }, { status: 400 });
+    }
+
+    await db.collection('proyectos').add({
       nombre,
       descripcion,
       fechaEntrega,
@@ -102,16 +74,18 @@ export async function POST(request) {
 
 // ---------------------- MÉTODO DELETE ----------------------
 export async function DELETE(request) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  console.log('[DELETE] Token recibido:', token);
-  if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
-  await verifyFirebaseAdmin(token);
-
-  const { proyectoId } = await request.json();
-  console.log('[DELETE] Proyecto a eliminar:', proyectoId);
-
   try {
-    await deleteDoc(doc(db, 'proyectos', proyectoId));
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
+
+    await verifyFirebaseAdmin(token);
+
+    const { proyectoId } = await request.json();
+    if (!proyectoId) {
+      return Response.json({ message: 'Falta proyectoId' }, { status: 400 });
+    }
+
+    await db.collection('proyectos').doc(proyectoId).delete();
     return Response.json({ message: 'Proyecto eliminado correctamente' });
   } catch (error) {
     console.error('[DELETE] Error al eliminar proyecto:', error);
@@ -121,30 +95,29 @@ export async function DELETE(request) {
 
 // ---------------------- MÉTODO PATCH ----------------------
 export async function PATCH(request) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  console.log('[PATCH] Token recibido:', token);
-  if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
-  await verifyFirebaseAdmin(token);
-
-  const { action, proyectoId, miembroId } = await request.json();
-  console.log('[PATCH] Acción:', action, 'Proyecto:', proyectoId, 'Miembro:', miembroId);
-
-  if (!action || !proyectoId || !miembroId) {
-    return Response.json({ message: 'Datos incompletos' }, { status: 400 });
-  }
-
   try {
-    const proyectoRef = doc(db, 'proyectos', proyectoId);
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
+
+    await verifyFirebaseAdmin(token);
+
+    const { action, proyectoId, miembroId } = await request.json();
+
+    if (!action || !proyectoId || !miembroId) {
+      return Response.json({ message: 'Datos incompletos' }, { status: 400 });
+    }
+
+    const proyectoRef = db.collection('proyectos').doc(proyectoId);
 
     if (action === 'asignar') {
-      await updateDoc(proyectoRef, {
+      await proyectoRef.update({
         miembros: arrayUnion(miembroId),
       });
       return Response.json({ message: 'Miembro asignado correctamente' });
     }
 
     if (action === 'quitar') {
-      await updateDoc(proyectoRef, {
+      await proyectoRef.update({
         miembros: arrayRemove(miembroId),
       });
       return Response.json({ message: 'Miembro quitado correctamente' });
