@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import ProyectoCard from '@/components/ProyectoCard';
-import { auth } from '@/firebaseConfig';
 
 export default function GerenteDashboard() {
   const [proyectos, setProyectos] = useState([]);
@@ -16,11 +15,16 @@ export default function GerenteDashboard() {
 
   const cargarProyectos = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) return console.warn('Usuario no autenticado');
+      const token = localStorage.getItem('token');
+      const userId = localStorage.getItem('userId');
 
-      const token = await user.getIdToken(true);
-      const res = await fetch(`/api/proyectos?userId=${user.uid}`, {
+      if (!token || !userId) {
+        console.warn('Faltan token o userId en localStorage');
+        alert('Usuario no autenticado correctamente');
+        return;
+      }
+
+      const res = await fetch(`/api/proyectos?userId=${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -41,13 +45,22 @@ export default function GerenteDashboard() {
 
   const crearProyecto = async (e) => {
     e.preventDefault();
-    if (!nombre || !descripcion || !fechaEntrega) return alert('Completa todos los campos');
 
-    const user = auth.currentUser;
-    if (!user) return alert('Usuario no autenticado correctamente');
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+
+    if (!token || !userId) {
+      console.warn('Faltan token o userId en localStorage');
+      alert('Usuario no autenticado correctamente');
+      return;
+    }
+
+    if (!nombre || !descripcion || !fechaEntrega) {
+      alert('Completa todos los campos');
+      return;
+    }
 
     try {
-      const token = await user.getIdToken(true);
       const res = await fetch('/api/proyectos', {
         method: 'POST',
         headers: {
@@ -58,7 +71,7 @@ export default function GerenteDashboard() {
           nombre,
           descripcion,
           fechaEntrega,
-          creadorId: user.uid,
+          creadorId: userId,
         }),
       });
 
@@ -69,6 +82,7 @@ export default function GerenteDashboard() {
         return alert('Error al crear proyecto: ' + (result.message || 'Error desconocido'));
       }
 
+      // Limpiar formulario y recargar
       setNombre('');
       setDescripcion('');
       setFechaEntrega('');

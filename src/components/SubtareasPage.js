@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { auth } from '@/firebaseConfig';
 
 export default function SubtareasPage({ idTarea }) {
   const [subtareas, setSubtareas] = useState([]);
@@ -13,10 +12,9 @@ export default function SubtareasPage({ idTarea }) {
 
   const cargarSubtareas = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const token = localStorage.getItem('token');
+      if (!token) return console.warn('Token no encontrado');
 
-      const token = await user.getIdToken();
       const res = await fetch(`/api/subtareas?tareaId=${idTarea}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -40,10 +38,9 @@ export default function SubtareasPage({ idTarea }) {
     if (!nombre.trim()) return alert('Escribe un nombre válido.');
 
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Token no encontrado');
 
-      const token = await user.getIdToken();
       const res = await fetch('/api/subtareas', {
         method: 'POST',
         headers: {
@@ -68,10 +65,9 @@ export default function SubtareasPage({ idTarea }) {
 
   const eliminarSubtarea = async (id) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Token no encontrado');
 
-      const token = await user.getIdToken();
       const res = await fetch('/api/subtareas', {
         method: 'DELETE',
         headers: {

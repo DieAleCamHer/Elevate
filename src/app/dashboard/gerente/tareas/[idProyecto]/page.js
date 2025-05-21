@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import TareaCard from '@/components/TareaCard';
-import { auth } from '@/firebaseConfig';
 
 export default function TareasProyectoPage() {
   const params = useParams();
@@ -24,10 +23,13 @@ export default function TareasProyectoPage() {
 
   const cargarTareas = async () => {
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
       const res = await fetch(`/api/tareas?proyectoId=${idProyecto}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
+
       const data = await res.json();
       setTareas(data);
     } catch (error) {
@@ -37,18 +39,20 @@ export default function TareasProyectoPage() {
 
   const cargarMiembros = async () => {
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const res = await fetch(`/api/proyectos?proyectoId=${idProyecto}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
+      const res = await fetch(`/api/proyectos?proyectoId=${idProyecto}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
       const miembrosIds = data.miembros || [];
 
       const miembrosConDatos = await Promise.all(
         miembrosIds.map(async (id) => {
           const resUsuario = await fetch(`/api/usuarios?id=${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
           });
 
           if (!resUsuario.ok) return { id, nombre: 'Desconocido', username: 'desconocido' };
@@ -57,7 +61,7 @@ export default function TareasProyectoPage() {
           return {
             id,
             nombre: usuario.nombre || 'Sin nombre',
-            username: usuario.username || 'sin-usuario'
+            username: usuario.username || 'sin-usuario',
           };
         })
       );
@@ -73,14 +77,20 @@ export default function TareasProyectoPage() {
     if (!nombreTarea || !descripcionTarea) return alert('Completa todos los campos');
 
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
+      if (!token) return alert('No autenticado');
+
       const res = await fetch('/api/tareas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ nombre: nombreTarea, descripcion: descripcionTarea, proyectoId: idProyecto })
+        body: JSON.stringify({
+          nombre: nombreTarea,
+          descripcion: descripcionTarea,
+          proyectoId: idProyecto,
+        }),
       });
 
       if (res.ok) {
@@ -99,14 +109,16 @@ export default function TareasProyectoPage() {
 
   const eliminar = async (tareaId) => {
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
       const res = await fetch('/api/tareas', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ tareaId })
+        body: JSON.stringify({ tareaId }),
       });
 
       if (!res.ok) throw new Error('Error al eliminar la tarea');
@@ -138,7 +150,13 @@ export default function TareasProyectoPage() {
 
       {tareas.length > 0 ? (
         tareas.map((tarea) => (
-          <TareaCard key={tarea.id} tarea={tarea} miembrosProyecto={miembrosProyecto} onEliminar={eliminar} onVerSubtareas={() => verSubtareas(tarea.id)} />
+          <TareaCard
+            key={tarea.id}
+            tarea={tarea}
+            miembrosProyecto={miembrosProyecto}
+            onEliminar={eliminar}
+            onVerSubtareas={() => verSubtareas(tarea.id)}
+          />
         ))
       ) : (
         <p>No hay tareas para este proyecto.</p>

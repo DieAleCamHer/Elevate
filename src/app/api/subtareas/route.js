@@ -1,34 +1,22 @@
 import { db } from '@/lib/firebase-admin-db';
-import { getAuth } from 'firebase-admin/auth';
+import { verifyFirebaseAdmin } from '@/lib/firebase-admin-config';
 
-// ------------------ FUNCIONES AUXILIARES ------------------
-async function verificarToken(request) {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-
-  const token = authHeader.replace('Bearer ', '');
-  try {
-    const decoded = await getAuth().verifyIdToken(token);
-    return decoded.uid;
-  } catch {
-    return null;
-  }
-}
+const getToken = (request) => request.headers.get('authorization')?.replace('Bearer ', '');
 
 // ------------------ GET: Obtener subtareas por tareaId ------------------
 export async function GET(request) {
-  const userId = await verificarToken(request);
-  if (!userId)
-    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
-
-  const { searchParams } = new URL(request.url);
-  const tareaId = searchParams.get('tareaId');
-  if (!tareaId)
-    return new Response(JSON.stringify({ message: 'Falta tareaId' }), { status: 400 });
-
   try {
+    const token = getToken(request);
+    if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
+
+    await verifyFirebaseAdmin(token);
+
+    const { searchParams } = new URL(request.url);
+    const tareaId = searchParams.get('tareaId');
+    if (!tareaId) return Response.json({ message: 'Falta tareaId' }, { status: 400 });
+
     const snapshot = await db
-      .collection('subtareas') // ✅ sin usar collection() importado
+      .collection('subtareas')
       .where('tareaId', '==', tareaId)
       .get();
 
@@ -37,23 +25,24 @@ export async function GET(request) {
       ...doc.data(),
     }));
 
-    return new Response(JSON.stringify(subtareas), { status: 200 });
+    return Response.json(subtareas);
   } catch (error) {
     console.error('[GET] Error al obtener subtareas:', error);
-    return new Response(JSON.stringify({ message: 'Error al obtener subtareas' }), { status: 500 });
+    return Response.json({ message: 'Error al obtener subtareas', error: error.message }, { status: 500 });
   }
 }
 
 // ------------------ POST: Crear una nueva subtarea ------------------
 export async function POST(request) {
-  const userId = await verificarToken(request);
-  if (!userId)
-    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
-
   try {
+    const token = getToken(request);
+    if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
+
+    await verifyFirebaseAdmin(token);
+
     const { nombre, tareaId } = await request.json();
     if (!nombre || !tareaId)
-      return new Response(JSON.stringify({ message: 'Faltan campos requeridos' }), { status: 400 });
+      return Response.json({ message: 'Faltan campos requeridos' }, { status: 400 });
 
     const nuevaRef = await db.collection('subtareas').add({
       nombre,
@@ -61,28 +50,29 @@ export async function POST(request) {
       createdAt: new Date().toISOString(),
     });
 
-    return new Response(JSON.stringify({ message: 'Subtarea creada', id: nuevaRef.id }), { status: 201 });
+    return Response.json({ message: 'Subtarea creada', id: nuevaRef.id }, { status: 201 });
   } catch (error) {
     console.error('[POST] Error al crear subtarea:', error);
-    return new Response(JSON.stringify({ message: 'Error al crear subtarea' }), { status: 500 });
+    return Response.json({ message: 'Error al crear subtarea', error: error.message }, { status: 500 });
   }
 }
 
 // ------------------ DELETE: Eliminar subtarea ------------------
 export async function DELETE(request) {
-  const userId = await verificarToken(request);
-  if (!userId)
-    return new Response(JSON.stringify({ message: 'No autorizado' }), { status: 401 });
-
   try {
+    const token = getToken(request);
+    if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
+
+    await verifyFirebaseAdmin(token);
+
     const { subtareaId } = await request.json();
     if (!subtareaId)
-      return new Response(JSON.stringify({ message: 'Falta subtareaId' }), { status: 400 });
+      return Response.json({ message: 'Falta subtareaId' }, { status: 400 });
 
     await db.collection('subtareas').doc(subtareaId).delete();
-    return new Response(JSON.stringify({ message: 'Subtarea eliminada' }), { status: 200 });
+    return Response.json({ message: 'Subtarea eliminada' }, { status: 200 });
   } catch (error) {
     console.error('[DELETE] Error al eliminar subtarea:', error);
-    return new Response(JSON.stringify({ message: 'Error al eliminar subtarea' }), { status: 500 });
+    return Response.json({ message: 'Error al eliminar subtarea', error: error.message }, { status: 500 });
   }
 }

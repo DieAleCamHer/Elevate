@@ -10,15 +10,14 @@ export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [formKey, setFormKey] = useState(Date.now()); // esta es una clave una para reiniciar el form
+  const [formKey, setFormKey] = useState(Date.now());
   const router = useRouter();
 
   useEffect(() => {
-    // Limpiar campos y cambiar la key al cargar
     setUsername('');
     setPassword('');
     setError('');
-    setFormKey(Date.now()); // Fuerzo a que el form se reinicie
+    setFormKey(Date.now());
   }, []);
 
   useEffect(() => {
@@ -26,14 +25,11 @@ export default function LoginPage() {
       setUsername('');
       setPassword('');
       setError('');
-      setFormKey(Date.now()); // Cuando doy click en atrás tambn se reinicia
+      setFormKey(Date.now());
     };
 
     window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const handleLogin = async (e) => {
@@ -44,6 +40,7 @@ export default function LoginPage() {
     }
 
     try {
+      // Buscar en la colección usuarios el documento por username
       const q = query(collection(db, 'usuarios'), where('username', '==', username));
       const querySnapshot = await getDocs(q);
 
@@ -52,20 +49,35 @@ export default function LoginPage() {
         return;
       }
 
-      const userData = querySnapshot.docs[0].data();
-      const email = userData.username + '@empresa.com';
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+      const email = `${userData.username}@empresa.com`;
       const rol = userData.rol;
 
-      await signInWithEmailAndPassword(auth, email, password);
+      // Iniciar sesión con Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      if (rol === 'admin') {
-        router.push('/dashboard/admin');
-      } else if (rol === 'gerente') {
-        router.push('/dashboard/gerente');
-      } else if (rol === 'miembro') {
-        router.push('/dashboard/miembro');
-      } else {
-        setError('Rol desconocido.');
+      // Obtener token y guardar token + UID en localStorage
+      const token = await user.getIdToken();
+      localStorage.setItem('token', token);
+      localStorage.setItem('userId', user.uid);
+
+      // Opcional: puedes verificar el rol llamando a tu backend si lo necesitas
+
+      // Redirigir según el rol
+      switch (rol) {
+        case 'admin':
+          router.push('/dashboard/admin');
+          break;
+        case 'gerente':
+          router.push('/dashboard/gerente');
+          break;
+        case 'miembro':
+          router.push('/dashboard/miembro');
+          break;
+        default:
+          setError('Rol desconocido.');
       }
 
     } catch (error) {

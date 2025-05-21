@@ -5,15 +5,16 @@ import { FieldValue } from 'firebase-admin/firestore';
 const arrayUnion = FieldValue.arrayUnion;
 const arrayRemove = FieldValue.arrayRemove;
 
+const getToken = (request) => request.headers.get('authorization')?.replace('Bearer ', '');
+
 // ---------------------- MÉTODO GET ----------------------
 export async function GET(request) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    const token = getToken(request);
     if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
 
     const decoded = await verifyFirebaseAdmin(token);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
     const proyectoId = searchParams.get('proyectoId');
 
     if (proyectoId) {
@@ -24,18 +25,13 @@ export async function GET(request) {
       return Response.json({ id: snap.id, ...snap.data() });
     }
 
-    if (userId) {
-      const q = db.collection('proyectos').where('creadorId', '==', userId);
-      const querySnapshot = await q.get();
-      const proyectos = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      return Response.json(proyectos);
-    }
-
-    const snap = await db.collection('proyectos').get();
-    const proyectos = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    // Buscar solo los proyectos del usuario autenticado
+    const q = db.collection('proyectos').where('creadorId', '==', decoded.uid);
+    const querySnapshot = await q.get();
+    const proyectos = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
     return Response.json(proyectos);
   } catch (error) {
     console.error('[GET] Error al obtener proyectos:', error);
@@ -46,14 +42,14 @@ export async function GET(request) {
 // ---------------------- MÉTODO POST ----------------------
 export async function POST(request) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    const token = getToken(request);
     if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
 
-    await verifyFirebaseAdmin(token);
+    const decoded = await verifyFirebaseAdmin(token);
+    const { nombre, descripcion, fechaEntrega } = await request.json();
 
-    const { nombre, descripcion, fechaEntrega, creadorId } = await request.json();
-    if (!creadorId) {
-      return Response.json({ message: 'Falta creadorId' }, { status: 400 });
+    if (!nombre || !descripcion || !fechaEntrega) {
+      return Response.json({ message: 'Faltan campos requeridos' }, { status: 400 });
     }
 
     await db.collection('proyectos').add({
@@ -61,7 +57,7 @@ export async function POST(request) {
       descripcion,
       fechaEntrega,
       fechaCreacion: new Date().toISOString(),
-      creadorId,
+      creadorId: decoded.uid, // ✅ fuente confiable
       miembros: [],
     });
 
@@ -75,15 +71,17 @@ export async function POST(request) {
 // ---------------------- MÉTODO DELETE ----------------------
 export async function DELETE(request) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    const token = getToken(request);
     if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
 
-    await verifyFirebaseAdmin(token);
-
+    const decoded = await verifyFirebaseAdmin(token);
     const { proyectoId } = await request.json();
+
     if (!proyectoId) {
       return Response.json({ message: 'Falta proyectoId' }, { status: 400 });
     }
+
+    // Opcional: puedes validar que el proyecto le pertenezca al usuario (seguridad extra)
 
     await db.collection('proyectos').doc(proyectoId).delete();
     return Response.json({ message: 'Proyecto eliminado correctamente' });
@@ -96,11 +94,10 @@ export async function DELETE(request) {
 // ---------------------- MÉTODO PATCH ----------------------
 export async function PATCH(request) {
   try {
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    const token = getToken(request);
     if (!token) return Response.json({ message: 'Token no proporcionado' }, { status: 401 });
 
-    await verifyFirebaseAdmin(token);
-
+    const decoded = await verifyFirebaseAdmin(token);
     const { action, proyectoId, miembroId } = await request.json();
 
     if (!action || !proyectoId || !miembroId) {

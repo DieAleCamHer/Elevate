@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import ModalAsignarMiembro from '@/components/ModalAsignarMiembro';
 import ModalQuitarMiembro from '@/components/ModalQuitarMiembro';
 import ModalVerMiembros from '@/components/ModalVerMiembros';
-import { auth } from '@/firebaseConfig';
 
 export default function ProyectoCard({ proyecto, recargar }) {
   const [mostrarEliminar, setMostrarEliminar] = useState(false);
@@ -17,16 +16,16 @@ export default function ProyectoCard({ proyecto, recargar }) {
 
   const eliminarProyecto = async () => {
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Usuario no autenticado');
 
       const res = await fetch('/api/proyectos', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ proyectoId: proyecto.id })
+        body: JSON.stringify({ proyectoId: proyecto.id }),
       });
 
       if (res.ok) {

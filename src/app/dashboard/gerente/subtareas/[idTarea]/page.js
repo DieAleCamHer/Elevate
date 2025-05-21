@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { auth } from '@/firebaseConfig';
 
 export default function SubtareasPage() {
-  const { idTarea } = useParams(); // ✅ Usa el hook correcto
+  const { idTarea } = useParams();
   const [subtareas, setSubtareas] = useState([]);
   const [nombre, setNombre] = useState('');
   const router = useRouter();
@@ -16,10 +15,9 @@ export default function SubtareasPage() {
 
   const cargarSubtareas = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const token = localStorage.getItem('token');
+      if (!token) return console.warn('Token no encontrado');
 
-      const token = await user.getIdToken();
       const res = await fetch(`/api/subtareas?tareaId=${idTarea}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -43,10 +41,9 @@ export default function SubtareasPage() {
     if (!nombre.trim()) return alert('Escribe un nombre válido.');
 
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Token no encontrado');
 
-      const token = await user.getIdToken();
       const res = await fetch('/api/subtareas', {
         method: 'POST',
         headers: {
@@ -71,10 +68,9 @@ export default function SubtareasPage() {
 
   const eliminarSubtarea = async (id) => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Token no encontrado');
 
-      const token = await user.getIdToken();
       const res = await fetch('/api/subtareas', {
         method: 'DELETE',
         headers: {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { auth } from '@/firebaseConfig';
 
 export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar }) {
   const [miembros, setMiembros] = useState([]);
@@ -13,8 +12,8 @@ export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar 
 
   const cargarMiembros = async () => {
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
       const res = await fetch('/api/usuarios', {
         headers: {
@@ -23,7 +22,7 @@ export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar 
       });
 
       const data = await res.json();
-      setMiembros(data.filter(usuario => usuario.rol === 'miembro'));
+      setMiembros(data.filter((usuario) => usuario.rol === 'miembro'));
     } catch (error) {
       console.error('Error al cargar miembros:', error);
     }
@@ -33,8 +32,8 @@ export default function ModalAsignarMiembro({ proyectoId, cerrarModal, recargar 
     if (!miembroSeleccionado) return alert('Selecciona un miembro');
 
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken(true);
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Token no encontrado');
 
       const res = await fetch('/api/proyectos', {
         method: 'PATCH',

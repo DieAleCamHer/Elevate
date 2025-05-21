@@ -4,7 +4,6 @@ import { useState } from 'react';
 import MiembrosTarea from './MiembrosTarea';
 import MiembroModal from './MiembroModal';
 import QuitarMiembroTarea from './QuitarMiembroTarea';
-import { auth } from '@/firebaseConfig';
 
 export default function TareaCard({ tarea, onEliminar, onVerSubtareas, miembrosProyecto }) {
   const [mostrarMiembros, setMostrarMiembros] = useState(null);
@@ -20,8 +19,8 @@ export default function TareaCard({ tarea, onEliminar, onVerSubtareas, miembrosP
     if (!miembroId || miembrosAsignados.includes(miembroId)) return;
 
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Token no encontrado');
 
       const res = await fetch(`/api/tareas/${tarea.id}/miembros`, {
         method: 'PUT',
@@ -46,8 +45,8 @@ export default function TareaCard({ tarea, onEliminar, onVerSubtareas, miembrosP
 
   const eliminarMiembro = async (miembroId) => {
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken();
+      const token = localStorage.getItem('token');
+      if (!token) return alert('Token no encontrado');
 
       const res = await fetch(`/api/tareas/${tarea.id}/miembros`, {
         method: 'DELETE',

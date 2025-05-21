@@ -1,3 +1,4 @@
+// lib/firebase-admin-config.js
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { readFileSync } from 'fs';
@@ -11,13 +12,23 @@ if (!serviceAccountPath) {
 
 const absolutePath = join(process.cwd(), serviceAccountPath);
 
+// Solo inicializar la app una vez
 if (!getApps().length) {
   const serviceAccount = JSON.parse(readFileSync(absolutePath, 'utf8'));
-  initializeApp({ credential: cert(serviceAccount) });
+  initializeApp({
+    credential: cert(serviceAccount),
+  });
 }
 
-// EXPORTAR LA FUNCIÓN PARA VERIFICAR TOKEN
+// Exportar instancia directa (opcionalmente útil en algunos casos)
+export const adminAuth = getAuth();
+
+// Función para verificar token con Firebase Admin
 export async function verifyFirebaseAdmin(token) {
-  const auth = getAuth();
-  return await auth.verifyIdToken(token);
+  try {
+    return await adminAuth.verifyIdToken(token);
+  } catch (error) {
+    console.error('Error al verificar token Firebase Admin:', error);
+    throw new Error('Token inválido o expirado');
+  }
 }

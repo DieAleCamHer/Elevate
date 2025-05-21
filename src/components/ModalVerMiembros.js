@@ -1,5 +1,6 @@
+'use client';
+
 import { useState, useEffect } from 'react';
-import { auth } from '@/firebaseConfig';
 
 export default function ModalVerMiembros({ proyectoId, cerrarModal }) {
   const [miembros, setMiembros] = useState([]);
@@ -10,8 +11,8 @@ export default function ModalVerMiembros({ proyectoId, cerrarModal }) {
 
   const cargarMiembrosAsignados = async () => {
     try {
-      const user = auth.currentUser;
-      const token = await user.getIdToken(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
       const resProyecto = await fetch(`/api/proyectos?proyectoId=${proyectoId}`, {
         headers: {
